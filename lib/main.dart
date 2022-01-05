@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:math';
 // import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:meetup/GoogleCalendar.dart';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -54,18 +56,26 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'MeetUp', storage: MyStorage()),
+      home: MyHomePage(
+          title: 'MeetUp',
+          storage: MyStorage(),
+          googleCalendar: GoogleCalendar()),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title, required this.storage})
+  const MyHomePage(
+      {Key? key,
+      required this.title,
+      required this.storage,
+      required this.googleCalendar})
       : super(key: key);
 
   final String title;
   final MyStorage storage;
+  final GoogleCalendar googleCalendar;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -74,6 +84,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+  double duration = 25;
 
   String ics = '''BEGIN:VCALENDAR
 VERSION:2.0
@@ -166,11 +177,29 @@ END:VCALENDAR''';
       }
     }
 
-    void handleShare() async {
+    void _handleShare() async {
       await widget.storage.writeMyFile(ics);
       widget.storage.readMyFile();
       var mypath = await widget.storage._localPath;
       Share.shareFiles([mypath + '/invite.ics'], text: 'Invite Others');
+    }
+
+    String getSliderLabel() {
+      if (duration == 60) {
+        return "1 Hr";
+      } else if (duration > 60) {
+        return "1 Hr ${duration - 60} Mins";
+      } else {
+        return "$duration Mins";
+      }
+    }
+
+    void _createEvent() async {
+      // selectedDate, selectedTime
+      DateTime startTime = selectedDate.add(
+          Duration(hours: selectedTime.hour, minutes: selectedTime.minute));
+      DateTime endTime = startTime.add(Duration(minutes: duration as int));
+      widget.googleCalendar.scheduleMeet(startTime, endTime);
     }
 
     // The Flutter framework has been optimized to make rerunning build methods
@@ -232,10 +261,19 @@ END:VCALENDAR''';
                 onPressed: () => _selectTime(context),
                 child: const Text('Pick Start Time'),
               ),
+              Slider.adaptive(
+                  value: duration,
+                  onChanged: (newDuration) {
+                    setState(() => duration = max(5, newDuration));
+                  },
+                  min: 0,
+                  max: 90,
+                  divisions: 18,
+                  label: getSliderLabel()),
               ElevatedButton.icon(
                 icon: const Icon(Icons.share),
                 label: const Text('Share Invite'),
-                onPressed: () => handleShare(),
+                onPressed: () => _handleShare(),
               )
             ],
           ),
