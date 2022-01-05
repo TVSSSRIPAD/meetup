@@ -3,10 +3,12 @@ import 'dart:math';
 // import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:googleapis/calendar/v3.dart';
 import 'package:meetup/GoogleCalendar.dart';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/src/material/colors.dart' as colorr;
 
 void main() {
   runApp(const MyApp());
@@ -36,7 +38,7 @@ class MyStorage {
 
       // Read the file
       final contents = await file.readAsString();
-      print(contents);
+      // print(contents);
       return contents;
     } catch (e) {
       // If encountering an error, return 0
@@ -54,7 +56,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MeetUp',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: colorr.Colors.blue,
       ),
       home: MyHomePage(
           title: 'MeetUp',
@@ -86,30 +88,6 @@ class _MyHomePageState extends State<MyHomePage> {
   TimeOfDay selectedTime = TimeOfDay.now();
   double duration = 25;
 
-  String ics = '''BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:MEETUP//GMeet Scheduler
-METHOD:PUBLISH
-X-PUBLISHED-TTL:PT1H
-BEGIN:VEVENT
-UID:2pjn5opt7buus9q2kmc1h9c99k@google.com
-SUMMARY:Summary
-DTSTAMP:20220105T090800Z
-DTSTART:20220105T090800Z
-DTEND:20220105T093300Z
-DESCRIPTION:Lorem ipsum dolor sit amet consectetur adipisicing elit. Veniam, alias?drfs 
-  Do not edit this section of the description. This event has a video call.
-  Join at https://meet.google.com/nnk-unhb-kug
-URL:https://meet.google.com/nnk-unhb-kug
-LOCATION:GMeet
-STATUS:CONFIRMED
-ORGANIZER;CN=Kishorereddy Kancherla:mailto:kishorereddykancherla@gmail.com
-CREATED:20220105T090800Z
-LAST-MODIFIED:20220105T090800Z
-END:VEVENT
-END:VCALENDAR''';
-
   List<String> days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   List<String> mon = [
     "Dec",
@@ -125,6 +103,7 @@ END:VCALENDAR''';
     "Oct",
     "Nov"
   ];
+
   String getFormatedDate(DateTime d) {
     return days[d.weekday % 7] +
         ", " +
@@ -178,28 +157,67 @@ END:VCALENDAR''';
     }
 
     void _handleShare() async {
-      await widget.storage.writeMyFile(ics);
-      widget.storage.readMyFile();
       var mypath = await widget.storage._localPath;
       Share.shareFiles([mypath + '/invite.ics'], text: 'Invite Others');
     }
 
     String getSliderLabel() {
+      int dint = duration.toInt();
       if (duration == 60) {
         return "1 Hr";
       } else if (duration > 60) {
-        return "1 Hr ${duration - 60} Mins";
+        return "1 Hr ${dint - 60} Mins";
       } else {
-        return "$duration Mins";
+        return "$dint Mins";
       }
+    }
+
+    String getICSFromEvent(Event? event) {
+      if (event == null) {
+        return "";
+      }
+      print('event not null');
+      String res = '''
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      CALSCALE:GREGORIAN
+      PRODID:MEETUP//GMeet Scheduler
+      METHOD:PUBLISH 
+      BEGIN:VEVENT
+      UID:${event.iCalUID}
+      SUMMARY:${event.summary}
+      DTSTAMP:${DateTime.now()}
+      DTSTART:${event.start!.dateTime}
+      DTEND:${event.end!.dateTime}
+      DESCRIPTION:${event.description}
+        ~:::::::::::::::::::::::::::::::::::::::::::~
+        Do not edit this section of the description.
+        This event has a video call.
+        Join: ${event.hangoutLink}
+      URL:${event.htmlLink}
+      LOCATION:GMeet
+      STATUS:CONFIRMED
+      ORGANIZER;CN=${event.creator!.displayName}:mailto:${event.creator!.email}
+      CREATED:${event.created}
+      LAST-MODIFIED:${event.created}
+      END:VEVENT
+      END:VCALENDAR''';
+      return res;
     }
 
     void _createEvent() async {
       // selectedDate, selectedTime
       DateTime startTime = selectedDate.add(
           Duration(hours: selectedTime.hour, minutes: selectedTime.minute));
-      DateTime endTime = startTime.add(Duration(minutes: duration as int));
-      widget.googleCalendar.scheduleMeet(startTime, endTime);
+      DateTime endTime = startTime.add(Duration(minutes: duration.toInt()));
+      Event? event =
+          await widget.googleCalendar.scheduleMeet(startTime, endTime);
+      print('here');
+      print('${event!.hangoutLink} from main');
+      String ics = getICSFromEvent(event);
+      print(ics);
+      await widget.storage.writeMyFile(ics);
+      // widget.storage.readMyFile();
     }
 
     // The Flutter framework has been optimized to make rerunning build methods
@@ -270,6 +288,10 @@ END:VCALENDAR''';
                   max: 90,
                   divisions: 18,
                   label: getSliderLabel()),
+              ElevatedButton(
+                child: const Text('Schedule Meet'),
+                onPressed: () => _createEvent(),
+              ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.share),
                 label: const Text('Share Invite'),

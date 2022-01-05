@@ -9,7 +9,9 @@ class GoogleCalendar {
   static const _scopes = [CalendarApi.calendarScope];
   var _credentials;
 
-  void scheduleMeet(DateTime startTime, DateTime endTime) {
+  scheduleMeet(DateTime startTime, DateTime endTime) {
+    log('scheduleMeet is called');
+
     if (Platform.isAndroid) {
       _credentials = ClientId(
           "753116283299-6ha4kn8jtgh0sq39vevkdkpomo78ihia.apps.googleusercontent.com");
@@ -22,36 +24,52 @@ class GoogleCalendar {
 
     EventDateTime start = EventDateTime(); //Setting start time
     start.dateTime = startTime;
-    start.timeZone = "GMT+05:00";
+    start.timeZone = "GMT+05:30";
     event.start = start;
 
     EventDateTime end = EventDateTime(); //setting end time
-    end.timeZone = "GMT+05:00";
+    end.timeZone = "GMT+05:30";
     end.dateTime = endTime;
     event.end = end;
-
-    event.conferenceData = 1 as ConferenceData?;
+    event.conferenceData = ConferenceData(
+        createRequest: CreateConferenceRequest(
+            requestId: "zzz",
+            conferenceSolutionKey:
+                ConferenceSolutionKey(type: "hangoutsMeet")));
     event.description = "Default MeetUp description";
+    insertEvent(event).then((eve) {
+      print('hh');
+      print(eve);
+      return eve;
+    });
   }
 
-  void insertEvent(event) {
+  insertEvent(event) {
+    log('insertEvent called');
     try {
       clientViaUserConsent(_credentials, _scopes, prompt)
           .then((AuthClient client) {
         var calendar = CalendarApi(client);
         String calendarId = "primary";
-        calendar.events.insert(event, calendarId).then((value) {
+
+        calendar.events
+            .insert(event, calendarId, conferenceDataVersion: 1)
+            .then((value) {
           print("ADDEDDD_________________${value.status}");
+
+          // print(value.iCalUID);
+          // print(value.status);
           if (value.status == "confirmed") {
-            log('Event added in google calendar');
-            log(value.toString());
+            print('Event added in google calendar');
+            print(value.hangoutLink);
           } else {
-            log("Unable to add event in google calendar");
+            print("Unable to add event in google calendar");
           }
+          return value;
         });
       });
     } catch (e) {
-      log('Error creating event $e');
+      throw ('Error creating event $e');
     }
   }
 
