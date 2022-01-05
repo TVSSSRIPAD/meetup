@@ -22,7 +22,7 @@ class MyStorage {
   }
 
   Future<File> writeMyFile(String invite) async {
-    print('here');
+    // print('here');
     final file = await _localFile;
     // Write the file
     return file.writeAsString(invite);
@@ -99,7 +99,7 @@ LAST-MODIFIED:20220105T090800Z
 END:VEVENT
 END:VCALENDAR''';
 
-  List<String> days = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
+  List<String> days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   List<String> mon = [
     "Dec",
     "Jan",
@@ -169,6 +169,8 @@ END:VCALENDAR''';
     void handleShare() async {
       await widget.storage.writeMyFile(ics);
       widget.storage.readMyFile();
+      var mypath = await widget.storage._localPath;
+      Share.shareFiles([mypath + '/invite.ics'], text: 'Invite Others');
     }
 
     // The Flutter framework has been optimized to make rerunning build methods
