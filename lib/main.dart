@@ -336,7 +336,11 @@ END:VCALENDAR''';
               ),
             ),
             Text(
-              getFormatedDate(lastDate) + '  |  ' + lastTime.format(context),
+              getFormatedDate(lastDate),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              lastTime.format(context) + '  |  ' + getSliderLabel(lastDuration),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(
