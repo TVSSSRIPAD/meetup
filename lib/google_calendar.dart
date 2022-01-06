@@ -41,6 +41,7 @@ class GoogleCalendar {
     print(insertedEvent.status);
     print(insertedEvent.hangoutLink);
     insertedEvent.creator!.displayName = await auth.getUserNameFromStorage();
+    print(insertedEvent.creator!.displayName);
     return insertedEvent;
   }
 

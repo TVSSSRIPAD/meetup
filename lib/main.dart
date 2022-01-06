@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 // import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:googleapis/calendar/v3.dart';
 import 'package:meetup/google_calendar.dart';
@@ -9,6 +10,7 @@ import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/src/material/colors.dart' as colorr;
+import 'package:url_launcher/url_launcher.dart';
 
 // import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -58,7 +60,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MeetUp',
       theme: ThemeData(
-        primarySwatch: colorr.Colors.blue,
+        primarySwatch: colorr.Colors.teal,
       ),
       home: MyHomePage(
           title: 'MeetUp',
@@ -90,11 +92,14 @@ class _MyHomePageState extends State<MyHomePage> {
   TimeOfDay selectedTime = TimeOfDay.now();
   DateTime lastDate = DateTime.now();
   TimeOfDay lastTime = TimeOfDay.now();
+  bool isLoading = false;
+  bool isSignedIn = false;
 
   double duration = 25;
   double lastDuration = 25;
   String meetLink = '';
   String myICSFilePath = '';
+  String error = '';
 
   List<String> days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   List<String> mon = [
@@ -219,13 +224,11 @@ SUMMARY:${event.summary}
 DTSTAMP:${formatUTCDateForICS(DateTime.now().toUtc())}
 DTSTART:${formatUTCDateForICS(event.start!.dateTime)}
 DTEND:${formatUTCDateForICS(event.end!.dateTime)}
-DESCRIPTION:~:::::::::::::::::::::::::::::::::::::::::::~
- Do not edit this section of the description.
- This event has a video call. Join: ${event.hangoutLink}
+DESCRIPTION: This event has a video call. Join: ${event.hangoutLink}
 URL:${event.hangoutLink}
 LOCATION:GMeet
 STATUS:CONFIRMED
-ORGANIZER;CN=${event.creator!.displayName}:mailto:${event.creator!.email}
+ORGANIZER;CN=${event.creator!.displayName}:MAILTO:${event.creator!.email}
 CREATED:${formatUTCDateForICS(event.created)}
 LAST-MODIFIED:${formatUTCDateForICS(event.created)}
 END:VEVENT
@@ -234,6 +237,9 @@ END:VCALENDAR''';
   }
 
   void _createEvent() async {
+    setState(() {
+      isLoading = true;
+    });
     // selectedDate, selectedTime
     int hour = selectedDate.hour,
         min = selectedDate.minute,
@@ -242,25 +248,34 @@ END:VCALENDAR''';
         .subtract(Duration(hours: hour, minutes: min, seconds: sec));
     startTime = startTime
         .add(Duration(hours: selectedTime.hour, minutes: selectedTime.minute));
-    DateTime endTime = startTime.add(Duration(minutes: duration.toInt()));
-    print(startTime);
-    print(endTime);
-    Event event = await widget.googleCalendar.scheduleMeet(startTime, endTime);
-    // print('here');
-    print('${event.hangoutLink} from main');
+    try {
+      DateTime endTime = startTime.add(Duration(minutes: duration.toInt()));
+      print(startTime);
+      print(endTime);
+      Event event =
+          await widget.googleCalendar.scheduleMeet(startTime, endTime);
+      // print('here');
+      print('${event.hangoutLink} from main');
 
+      setState(() {
+        meetLink = event.hangoutLink!;
+        lastDate = selectedDate;
+        lastTime = selectedTime;
+        lastDuration = duration;
+      });
+
+      String ics = getICSFromEvent(event);
+      print(ics);
+
+      await widget.storage.writeMyFile(ics);
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+      });
+    }
     setState(() {
-      meetLink = event.hangoutLink!;
-      lastDate = selectedDate;
-      lastTime = selectedTime;
-      lastDuration = duration;
+      isLoading = false;
     });
-
-    String ics = getICSFromEvent(event);
-    print(ics);
-
-    await widget.storage.writeMyFile(ics);
-
     // widget.storage.readMyFile();
   }
 
@@ -316,11 +331,95 @@ END:VCALENDAR''';
     }
   }
 
+  Widget _getFAB() {
+    if (widget.googleCalendar.auth.signInStatus == 'true') {
+      return FloatingActionButton(
+        onPressed: () {
+          final snackBar = SnackBar(
+            content: const Text('Tap Yes to SignOut'),
+            action: SnackBarAction(
+              label: 'Yes',
+              onPressed: () {
+                widget.googleCalendar.signOut();
+                setState(() {
+                  isLoading = false;
+                });
+              },
+            ),
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        },
+        child: const Icon(Icons.login_rounded),
+      );
+    } else {
+      return Container();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: 20.0),
+            child: GestureDetector(
+              child: const Icon(Icons.info_outline),
+              onTap: () {
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'MeetUp',
+                  applicationVersion: 'Alpha Release',
+                  // applicationIcon: Icon(),
+                  children: <Widget>[
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: 'This app is developed by ',
+                            style: TextStyle(
+                                color: colorr.Colors.black, fontSize: 20),
+                          ),
+                          TextSpan(
+                            text: 'T.V.S.S.SRIPAD',
+                            style: const TextStyle(
+                                color: colorr.Colors.blue, fontSize: 20),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                launch('https://github.com/TVSSSRIPAD');
+                              },
+                          ),
+                          const TextSpan(
+                            text: ' and ',
+                            style: TextStyle(
+                                color: colorr.Colors.black, fontSize: 20),
+                          ),
+                          TextSpan(
+                            text: 'K.Kishorereddy. ',
+                            style: const TextStyle(
+                                color: colorr.Colors.blue, fontSize: 20),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                launch(
+                                    'https://github.com/kancherlakishorereddy');
+                              },
+                          ),
+                          const TextSpan(
+                            text: ' \n\nAll CopyRights Reserved 2022 \u00a9 \n',
+                            style: TextStyle(
+                                color: colorr.Colors.black, fontSize: 20),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          )
+        ],
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -330,17 +429,12 @@ END:VCALENDAR''';
             // crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               const SizedBox(
-                height: 20,
+                height: 25,
               ),
               Text(
-                // formatUTCDateForICS(selectedDate),
                 getFormatedDate(selectedDate),
-                // "${selectedDate.toLocal()}",
                 style:
                     const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(
-                height: 20.0,
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -362,7 +456,7 @@ END:VCALENDAR''';
                 ],
               ),
               const SizedBox(
-                height: 10,
+                height: 20,
               ),
               Text(
                 // MaterialLocalizations.of(context).formatTimeOfDay(selectedTime),
@@ -375,12 +469,27 @@ END:VCALENDAR''';
                 child: const Text('Pick Start Time'),
               ),
               const SizedBox(
-                height: 10,
+                height: 20,
               ),
-              Text(
-                'Duration : ${getSliderLabel(duration)}',
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    const TextSpan(
+                      text: 'Duration: ',
+                      style: TextStyle(
+                        fontSize: 25,
+                        color: colorr.Colors.black,
+                      ),
+                    ),
+                    TextSpan(
+                      text: getSliderLabel(duration),
+                      style: const TextStyle(
+                          fontSize: 25,
+                          fontWeight: FontWeight.bold,
+                          color: colorr.Colors.black),
+                    ),
+                  ],
+                ),
               ),
               Slider.adaptive(
                 value: duration,
@@ -391,10 +500,47 @@ END:VCALENDAR''';
                 max: 60,
                 divisions: 12,
               ),
-              ElevatedButton(
-                child: const Text('Schedule Meet'),
-                onPressed: () => _createEvent(),
+              const SizedBox(
+                height: 20,
               ),
+              ElevatedButton(
+                  child: Text(isLoading ? "Scheduling..." : 'Schedule Meeting'),
+                  onPressed: () {
+                    if (isLoading) {
+                      final snackBar = SnackBar(
+                        content:
+                            const Text('Wait for scheduling to complete...'),
+                        action: SnackBarAction(
+                          label: 'Ok',
+                          onPressed: () {},
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    } else if (selectedDate != lastDate ||
+                        selectedTime != lastTime ||
+                        duration != lastDuration) {
+                      _createEvent();
+                    } else if (error != '') {
+                      final snackBar = SnackBar(
+                        content: Text(error),
+                        action: SnackBarAction(
+                          label: 'Ok',
+                          onPressed: () {},
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    } else {
+                      final snackBar = SnackBar(
+                        content: const Text(
+                            'You have already scheduled a meeting with those options.'),
+                        action: SnackBarAction(
+                          label: 'Ok',
+                          onPressed: () {},
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    }
+                  }),
               const SizedBox(
                 height: 25,
               ),
@@ -402,39 +548,12 @@ END:VCALENDAR''';
               const SizedBox(
                 height: 25,
               ),
-              ElevatedButton.icon(
-                icon: const Icon(
-                  Icons.logout_rounded,
-                  color: colorr.Colors.white,
-                ),
-                onPressed: () {
-                  // do something
-                  widget.googleCalendar.signOut();
-                },
-                label: const Text('Sign Out'),
-              ),
+              // error != '' ? Text(error) : Container()
             ],
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final snackBar = SnackBar(
-            content: const Text('Tap Yes to SignOut'),
-            action: SnackBarAction(
-              label: 'Yes',
-              onPressed: () {
-                widget.googleCalendar.signOut();
-              },
-            ),
-          );
-
-          // Find the ScaffoldMessenger in the widget tree
-          // and use it to show a SnackBar.
-          ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        },
-        child: const Icon(Icons.login_rounded),
-      ),
+      floatingActionButton: _getFAB(),
     );
   }
 }

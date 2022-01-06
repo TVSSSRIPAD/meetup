@@ -16,6 +16,7 @@ class Auth {
   ClientId? _clientId;
   final storage = const FlutterSecureStorage();
   final _newClient = http.Client();
+  String signInStatus = 'false';
 
   Auth() {
     if (Platform.isAndroid) {
@@ -82,19 +83,22 @@ class Auth {
             await refreshCredentials(_clientId!, _credentials, _newClient);
         writeMyCredentials(_credentials);
       }
-
+      signInStatus = 'true';
       return authenticatedClient(_newClient, _credentials);
     } else {
       AuthClient temp = await clientViaUserConsent(_clientId!, _scopes, prompt);
       String? userName = await getLatestUserName(temp);
       writeMyCredentials(temp.credentials);
       writeUserNameToStorage(userName);
+      signInStatus = 'true';
       return temp;
     }
   }
 
   void signOut() async {
 // Delete all
+
+    signInStatus = 'false';
     await storage.deleteAll();
   }
 
