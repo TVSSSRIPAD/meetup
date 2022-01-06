@@ -165,7 +165,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  String getSliderLabel() {
+  String getSliderLabel(double duration) {
     int dint = duration.toInt();
     if (duration == 60) {
       return "1 Hr";
@@ -284,7 +284,7 @@ END:VCALENDAR''';
               style: const TextStyle(fontSize: 15),
             ),
             Text(
-              'Duration : ${getSliderLabel()}',
+              'Duration : ${getSliderLabel(lastDuration)}',
               style: const TextStyle(fontSize: 15),
             ),
             Text(
@@ -322,11 +322,10 @@ END:VCALENDAR''';
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
         children: <Widget>[
           Column(
-            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
             // crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -344,6 +343,7 @@ END:VCALENDAR''';
                 height: 20.0,
               ),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton(
                     onPressed: () => {_changeDateToToday()}, // Refer step 3
@@ -378,19 +378,19 @@ END:VCALENDAR''';
                 height: 10,
               ),
               Text(
-                'Duration : ${getSliderLabel()}',
+                'Duration : ${getSliderLabel(duration)}',
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               Slider.adaptive(
-                  value: duration,
-                  onChanged: (newDuration) {
-                    setState(() => duration = max(5, newDuration));
-                  },
-                  min: 0,
-                  max: 90,
-                  divisions: 18,
-                  label: getSliderLabel()),
+                value: duration,
+                onChanged: (newDuration) {
+                  setState(() => duration = max(5, newDuration));
+                },
+                min: 0,
+                max: 60,
+                divisions: 12,
+              ),
               ElevatedButton(
                 child: const Text('Schedule Meet'),
                 onPressed: () => _createEvent(),
@@ -409,12 +409,31 @@ END:VCALENDAR''';
                 ),
                 onPressed: () {
                   // do something
+                  widget.googleCalendar.signOut();
                 },
                 label: const Text('Sign Out'),
-              )
+              ),
             ],
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          final snackBar = SnackBar(
+            content: const Text('Tap Yes to SignOut'),
+            action: SnackBarAction(
+              label: 'Yes',
+              onPressed: () {
+                widget.googleCalendar.signOut();
+              },
+            ),
+          );
+
+          // Find the ScaffoldMessenger in the widget tree
+          // and use it to show a SnackBar.
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        },
+        child: const Icon(Icons.login_rounded),
       ),
     );
   }

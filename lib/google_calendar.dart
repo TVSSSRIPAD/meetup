@@ -43,4 +43,8 @@ class GoogleCalendar {
     insertedEvent.creator!.displayName = await auth.getUserNameFromStorage();
     return insertedEvent;
   }
+
+  void signOut() {
+    auth.signOut();
+  }
 }
