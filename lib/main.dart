@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/src/material/colors.dart' as colorr;
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -93,8 +94,9 @@ class _MyHomePageState extends State<MyHomePage> {
   DateTime lastDate = DateTime.now();
   TimeOfDay lastTime = TimeOfDay.now();
   bool isLoading = false;
-  bool isSignedIn = false;
+  // bool isSignedIn = false;
 
+  int lastSelectedButton = 1;
   double duration = 25;
   double lastDuration = 25;
   String meetLink = '';
@@ -122,6 +124,18 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     widget.storage._localPath
         .then((value) => {myICSFilePath = value + '/invite.ics'});
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitDown
+    ]);
+    super.dispose();
   }
 
   String getFormatedDate(DateTime d) {
@@ -138,22 +152,40 @@ class _MyHomePageState extends State<MyHomePage> {
         firstDate: DateTime.now(),
         lastDate: DateTime(2050));
     // print('Picked date is ${picked}');
-    if (picked != null && picked != selectedDate) {
+
+    if (picked != null) {
+      int diff = picked.difference(DateTime.now()).inHours;
+      print(diff);
+      int newButton;
+      if (diff <= 0) {
+        newButton = 1;
+      } else if (diff <= 24) {
+        newButton = 2;
+      } else {
+        newButton = 3;
+      }
       setState(() {
-        selectedDate = picked;
+        lastSelectedButton = newButton;
       });
+      if (picked != selectedDate) {
+        setState(() {
+          selectedDate = picked;
+        });
+      }
     }
   }
 
   void _changeDateToToday() {
     setState(() {
       selectedDate = DateTime.now();
+      lastSelectedButton = 1;
     });
   }
 
   void _changeDateToTomorrow() {
     setState(() {
       selectedDate = DateTime.now().add(const Duration(days: 1));
+      lastSelectedButton = 2;
     });
   }
 
@@ -279,7 +311,7 @@ END:VCALENDAR''';
     // widget.storage.readMyFile();
   }
 
-  Widget getWidget(BuildContext context) {
+  Widget getMeetInfoWidget(BuildContext context) {
     void _handleShare() async {
       print(myICSFilePath);
       await Share.shareFiles([myICSFilePath], text: 'Invite Others');
@@ -287,43 +319,89 @@ END:VCALENDAR''';
 
     if (meetLink != null && meetLink != '') {
       return Container(
+        margin: const EdgeInsets.fromLTRB(15, 0, 15, 0),
+        padding: const EdgeInsets.fromLTRB(0, 12, 0, 15),
+        decoration: const BoxDecoration(
+          borderRadius: BorderRadius.all(
+            Radius.circular(5),
+          ),
+          color: Color(0xff9DF3C4),
+        ),
         child: Column(
           children: [
-            const Text('Your last meeting details are:\n '),
-            Text(
-              'Date:- ' + getFormatedDate(lastDate),
-              style: const TextStyle(fontSize: 15),
+            const Text(
+              'Last Scheduled Meeting:\n ',
+              style: TextStyle(
+                fontSize: 18,
+              ),
             ),
             Text(
-              'Time:- ' + lastTime.format(context),
-              style: const TextStyle(fontSize: 15),
+              getFormatedDate(lastDate) + '  |  ' + lastTime.format(context),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(
+              height: 5,
             ),
             Text(
-              'Duration : ${getSliderLabel(lastDuration)}',
-              style: const TextStyle(fontSize: 15),
+              meetLink,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
-            Text(
-              'Link:\n $meetLink',
-              style: const TextStyle(fontSize: 15),
+            const SizedBox(
+              height: 15,
             ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.share),
-              label: const Text('Share Invite'),
-              onPressed: () => _handleShare(),
-            )
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('GMeet Link'),
+                  onPressed: () {
+                    Clipboard.setData(
+                      ClipboardData(text: meetLink),
+                    );
+                    final snackBar = SnackBar(
+                      content: const Text('Copied'),
+                      action: SnackBarAction(
+                        label: '',
+                        onPressed: () {},
+                      ),
+                    );
+
+                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                  },
+                ),
+                const SizedBox(
+                  width: 5,
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.share),
+                  label: const Text('Share ICS'),
+                  onPressed: () => _handleShare(),
+                ),
+              ],
+            ),
           ],
         ),
       );
     } else {
       return Container(
+        // width: ,
+        margin: const EdgeInsets.fromLTRB(0, 25, 0, 0),
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+        decoration: const BoxDecoration(
+          borderRadius: BorderRadius.all(
+            Radius.circular(5),
+          ),
+          color: Color(0xff9DF3C4),
+        ),
         child: Column(
           children: const [
             SizedBox(
               height: 10,
             ),
             Text(
-              'Schedule a Meeting to See the details Here!',
-              style: TextStyle(fontSize: 15),
+              'Schedule a meeting to see details here',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -332,11 +410,12 @@ END:VCALENDAR''';
   }
 
   Widget _getFAB() {
+    print(widget.googleCalendar.auth.signInStatus);
     if (widget.googleCalendar.auth.signInStatus == 'true') {
       return FloatingActionButton(
         onPressed: () {
           final snackBar = SnackBar(
-            content: const Text('Tap Yes to SignOut'),
+            content: const Text('Tap on Yes to SignOut'),
             action: SnackBarAction(
               label: 'Yes',
               onPressed: () {
@@ -354,6 +433,24 @@ END:VCALENDAR''';
       );
     } else {
       return Container();
+    }
+  }
+
+  ButtonStyle getButtonStyle(int buttonId) {
+    ButtonStyle b = ButtonStyle(
+      elevation: MaterialStateProperty.all(0),
+      backgroundColor: MaterialStateProperty.all(colorr.Colors.white38),
+      foregroundColor: MaterialStateProperty.all(colorr.Colors.teal),
+      animationDuration: const Duration(milliseconds: 100),
+      side: MaterialStateProperty.all(
+        const BorderSide(color: colorr.Colors.teal, width: 1),
+      ),
+    );
+    const bb = ButtonStyle();
+    if (lastSelectedButton == buttonId) {
+      return bb;
+    } else {
+      return b;
     }
   }
 
@@ -383,7 +480,7 @@ END:VCALENDAR''';
                                 color: colorr.Colors.black, fontSize: 20),
                           ),
                           TextSpan(
-                            text: 'T.V.S.S.SRIPAD',
+                            text: 'T.V.S.S.Sripad',
                             style: const TextStyle(
                                 color: colorr.Colors.blue, fontSize: 20),
                             recognizer: TapGestureRecognizer()
@@ -407,7 +504,7 @@ END:VCALENDAR''';
                               },
                           ),
                           const TextSpan(
-                            text: ' \n\nAll CopyRights Reserved 2022 \u00a9 \n',
+                            text: ' \n\nAll CopyRights Reserved 2022 \u00a9',
                             style: TextStyle(
                                 color: colorr.Colors.black, fontSize: 20),
                           ),
@@ -442,16 +539,19 @@ END:VCALENDAR''';
                   ElevatedButton(
                     onPressed: () => {_changeDateToToday()}, // Refer step 3
                     child: const Text('Today'),
+                    style: getButtonStyle(1),
                   ),
                   const SizedBox(width: 10.0),
                   ElevatedButton(
                     onPressed: () => {_changeDateToTomorrow()}, // Refer step 3
                     child: const Text('Tomorrow'),
+                    style: getButtonStyle(2),
                   ),
                   const SizedBox(width: 10.0),
                   ElevatedButton(
                     onPressed: () => _selectDate(context), // Refer step 3
                     child: const Text('Pick a date'),
+                    style: getButtonStyle(3),
                   ),
                 ],
               ),
@@ -502,7 +602,7 @@ END:VCALENDAR''';
                 divisions: 12,
               ),
               const SizedBox(
-                height: 20,
+                height: 10,
               ),
               ElevatedButton(
                   child: Text(isLoading ? "Scheduling..." : 'Schedule Meeting'),
@@ -517,20 +617,25 @@ END:VCALENDAR''';
                         ),
                       );
                       ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    } else if (selectedDate != lastDate ||
-                        selectedTime != lastTime ||
-                        duration != lastDuration) {
-                      _createEvent();
                     } else if (error != '') {
                       final snackBar = SnackBar(
                         content: Text(error),
                         action: SnackBarAction(
                           label: 'Ok',
-                          onPressed: () {},
+                          onPressed: () {
+                            setState(() {
+                              error = '';
+                            });
+                          },
                         ),
                       );
                       ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    } else {
+                    } else if (selectedDate != lastDate ||
+                        selectedTime != lastTime ||
+                        duration != lastDuration) {
+                      _createEvent();
+                    } else if (widget.googleCalendar.auth.signInStatus ==
+                        'true') {
                       final snackBar = SnackBar(
                         content: const Text(
                             'You have already scheduled a meeting with those options.'),
@@ -540,12 +645,14 @@ END:VCALENDAR''';
                         ),
                       );
                       ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    } else {
+                      _createEvent();
                     }
                   }),
               const SizedBox(
                 height: 25,
               ),
-              getWidget(context),
+              getMeetInfoWidget(context),
               const SizedBox(
                 height: 25,
               ),

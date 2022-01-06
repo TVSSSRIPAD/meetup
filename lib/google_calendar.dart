@@ -11,11 +11,11 @@ class GoogleCalendar {
 
     EventDateTime start = EventDateTime(); //Setting start time
     start.dateTime = startTime;
-    start.timeZone = "GMT+05:30";
+    start.timeZone = startTime.timeZoneName;
     event.start = start;
 
     EventDateTime end = EventDateTime(); //setting end time
-    end.timeZone = "GMT+05:30";
+    end.timeZone = startTime.timeZoneName;
     end.dateTime = endTime;
     event.end = end;
     event.conferenceData = ConferenceData(
@@ -42,6 +42,9 @@ class GoogleCalendar {
     print(insertedEvent.hangoutLink);
     insertedEvent.creator!.displayName = await auth.getUserNameFromStorage();
     print(insertedEvent.creator!.displayName);
+
+    print('from here');
+    print(auth.signInStatus);
     return insertedEvent;
   }
 
