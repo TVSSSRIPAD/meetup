@@ -4,7 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:googleapis/calendar/v3.dart';
-import 'package:meetup/GoogleCalendar.dart';
+import 'package:meetup/google_calendar.dart';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -88,9 +88,14 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime lastDate = DateTime.now();
+  TimeOfDay lastTime = TimeOfDay.now();
+
   double duration = 25;
+  double lastDuration = 25;
   String meetLink = '';
   String myICSFilePath = '';
+
   List<String> days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   List<String> mon = [
     "Dec",
@@ -214,7 +219,7 @@ SUMMARY:${event.summary}
 DTSTAMP:${formatUTCDateForICS(DateTime.now().toUtc())}
 DTSTART:${formatUTCDateForICS(event.start!.dateTime)}
 DTEND:${formatUTCDateForICS(event.end!.dateTime)}
-DESCRIPTION:${event.description}~:::::::::::::::::::::::::::::::::::::::::::~
+DESCRIPTION:~:::::::::::::::::::::::::::::::::::::::::::~
  Do not edit this section of the description.
  This event has a video call. Join: ${event.hangoutLink}
 URL:${event.hangoutLink}
@@ -243,9 +248,14 @@ END:VCALENDAR''';
     Event event = await widget.googleCalendar.scheduleMeet(startTime, endTime);
     // print('here');
     print('${event.hangoutLink} from main');
+
     setState(() {
       meetLink = event.hangoutLink!;
+      lastDate = selectedDate;
+      lastTime = selectedTime;
+      lastDuration = duration;
     });
+
     String ics = getICSFromEvent(event);
     print(ics);
 
@@ -254,28 +264,63 @@ END:VCALENDAR''';
     // widget.storage.readMyFile();
   }
 
+  Widget getWidget(BuildContext context) {
+    void _handleShare() async {
+      print(myICSFilePath);
+      await Share.shareFiles([myICSFilePath], text: 'Invite Others');
+    }
+
+    if (meetLink != null && meetLink != '') {
+      return Container(
+        child: Column(
+          children: [
+            const Text('Your last meeting details are:\n '),
+            Text(
+              'Date:- ' + getFormatedDate(lastDate),
+              style: const TextStyle(fontSize: 15),
+            ),
+            Text(
+              'Time:- ' + lastTime.format(context),
+              style: const TextStyle(fontSize: 15),
+            ),
+            Text(
+              'Duration : ${getSliderLabel()}',
+              style: const TextStyle(fontSize: 15),
+            ),
+            Text(
+              'Link:\n $meetLink',
+              style: const TextStyle(fontSize: 15),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.share),
+              label: const Text('Share Invite'),
+              onPressed: () => _handleShare(),
+            )
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        child: Column(
+          children: const [
+            SizedBox(
+              height: 10,
+            ),
+            Text(
+              'Schedule a Meeting to See the details Here!',
+              style: TextStyle(fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        leading: GestureDetector(
-          onTap: () {/* Write listener code here */},
-          child: const Icon(
-            Icons.menu, // add custom icons also
-          ),
-        ),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: colorr.Colors.white,
-            ),
-            onPressed: () {
-              // do something
-            },
-          )
-        ],
       ),
       body: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -351,49 +396,23 @@ END:VCALENDAR''';
                 onPressed: () => _createEvent(),
               ),
               const SizedBox(
-                height: 10,
+                height: 25,
               ),
-              getWidget(myICSFilePath, meetLink),
+              getWidget(context),
+              const SizedBox(
+                height: 25,
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(
+                  Icons.logout_rounded,
+                  color: colorr.Colors.white,
+                ),
+                onPressed: () {
+                  // do something
+                },
+                label: const Text('Sign Out'),
+              )
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Widget getWidget(String myPath, String meetLink) {
-  void _handleShare() async {
-    print(myPath);
-    await Share.shareFiles([myPath], text: 'Invite Others');
-  }
-
-  if (meetLink != null && meetLink != '') {
-    return Container(
-      child: Column(
-        children: [
-          Text(
-            ' $meetLink',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.share),
-            label: const Text('Share Invite'),
-            onPressed: () => _handleShare(),
-          )
-        ],
-      ),
-    );
-  } else {
-    return Container(
-      child: Column(
-        children: const [
-          SizedBox(
-            height: 10,
-          ),
-          Text(
-            'Schedule a Meeting to See the details Here!',
-            style: TextStyle(fontSize: 15),
           ),
         ],
       ),
