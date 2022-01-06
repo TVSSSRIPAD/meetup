@@ -484,9 +484,10 @@ END:VCALENDAR''';
                     TextSpan(
                       text: getSliderLabel(duration),
                       style: const TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.bold,
-                          color: colorr.Colors.black),
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                        color: colorr.Colors.black,
+                      ),
                     ),
                   ],
                 ),
