@@ -1,20 +1,28 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:googleapis/people/v1.dart' as People;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:googleapis/calendar/v3.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 class GoogleCalendar {
-  static const _scopes = [CalendarApi.calendarScope];
-  var _credentials;
+  static const _scopes = [
+    CalendarApi.calendarScope,
+    People.PeopleServiceApi.userinfoProfileScope
+  ];
+  ClientId? _credentials;
+  final storage = const FlutterSecureStorage();
 
-  scheduleMeet(DateTime startTime, DateTime endTime) {
+  Future<Event> scheduleMeet(DateTime startTime, DateTime endTime) async {
     log('scheduleMeet is called');
 
     if (Platform.isAndroid) {
       _credentials = ClientId(
-          "753116283299-6ha4kn8jtgh0sq39vevkdkpomo78ihia.apps.googleusercontent.com");
+          "753116283299-6ha4kn8jtgh0sq39vevkdkpomo78ihia.apps.googleusercontent.com",
+          "");
     } else if (Platform.isIOS) {
       _credentials = ClientId("secure-key");
     }
@@ -37,39 +45,97 @@ class GoogleCalendar {
             conferenceSolutionKey:
                 ConferenceSolutionKey(type: "hangoutsMeet")));
     event.description = "Default MeetUp description";
-    insertEvent(event).then((eve) {
-      print('hh');
-      print(eve);
-      return eve;
-    });
+    event.attendeesOmitted = true;
+    Event eve = await insertEvent(event);
+    //.then((eve) {
+    //   print('hh');
+    print(eve);
+    return eve;
+    // }
+    // );
   }
 
-  insertEvent(event) {
+  Future<Event> insertEvent(event) async {
     log('insertEvent called');
-    try {
-      clientViaUserConsent(_credentials, _scopes, prompt)
-          .then((AuthClient client) {
+    // Read value
+    String? type = await storage.read(key: "accessTokenType");
+    String? data = await storage.read(key: "accessTokenData");
+    String? expiry = await storage.read(key: "accessTokenExpiry");
+    String? refresh = await storage.read(key: "refreshToken");
+    AuthClient client;
+    print(data);
+    print(expiry);
+    if (type != null) {
+      print('type not null');
+      AccessCredentials _newCredentials = AccessCredentials(
+          AccessToken(type, data!, DateTime.parse(expiry!)), refresh, _scopes);
+
+      var _newClient = http.Client();
+      AccessCredentials _accessCredentials =
+          await refreshCredentials(_credentials!, _newCredentials, _newClient);
+      client = authenticatedClient(_newClient, _accessCredentials);
+      try {
+        // client = await clientViaUserConsent(_credentials!, _scopes, prompt);
+
+        // .then((AuthClient client) {
         var calendar = CalendarApi(client);
+        await storage.write(
+            key: "accessTokenType", value: client.credentials.accessToken.type);
+        await storage.write(
+            key: "accessTokenData", value: client.credentials.accessToken.data);
+        await storage.write(
+            key: "accessTokenExpiry",
+            value: client.credentials.accessToken.expiry.toString());
+        await storage.write(key: "idToken", value: client.credentials.idToken);
+        await storage.write(
+            key: "refreshToken", value: client.credentials.refreshToken);
+        String calendarId = "primary";
+        print('ss');
+        People.Person details = await People.PeopleServiceApi(client)
+            .people
+            .get("me", personFields: "person.names");
+        // // details.people.get("me",personFields: "person.names");
+        // print(details.names);
+        Event eve = await calendar.events
+            .insert(event, calendarId, conferenceDataVersion: 1);
+        print(eve.status);
+        print(eve.hangoutLink);
+        return eve;
+      } catch (e) {
+        throw ('Error creating event $e');
+      }
+    } else {
+      try {
+        print(_credentials);
+        client = await clientViaUserConsent(_credentials!, _scopes, prompt);
+
+        // .then((AuthClient client) {
+        var calendar = CalendarApi(client);
+        await storage.write(
+            key: "accessTokenType", value: client.credentials.accessToken.type);
+        await storage.write(
+            key: "accessTokenData", value: client.credentials.accessToken.data);
+        await storage.write(
+            key: "accessTokenExpiry",
+            value: client.credentials.accessToken.expiry.toString());
+        await storage.write(key: "idToken", value: client.credentials.idToken);
+        await storage.write(
+            key: "refreshToken", value: client.credentials.refreshToken);
         String calendarId = "primary";
 
-        calendar.events
-            .insert(event, calendarId, conferenceDataVersion: 1)
-            .then((value) {
-          print("ADDEDDD_________________${value.status}");
-
-          // print(value.iCalUID);
-          // print(value.status);
-          if (value.status == "confirmed") {
-            print('Event added in google calendar');
-            print(value.hangoutLink);
-          } else {
-            print("Unable to add event in google calendar");
-          }
-          return value;
-        });
-      });
-    } catch (e) {
-      throw ('Error creating event $e');
+        // People.Person details = await People.PeopleServiceApi(client)
+        //     .people
+        //     .get("me", personFields: "person.names");
+        // // details.people.get("me",personFields: "person.names");
+        // print(details.names);
+        Event eve = await calendar.events
+            .insert(event, calendarId, conferenceDataVersion: 1);
+        print(eve.status);
+        print(eve.hangoutLink);
+        return eve;
+      } catch (e) {
+        throw ('Error creating event $e');
+      }
     }
   }
 
