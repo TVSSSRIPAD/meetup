@@ -91,9 +91,9 @@ class GoogleCalendar {
             key: "refreshToken", value: client.credentials.refreshToken);
         String calendarId = "primary";
         print('ss');
-        People.Person details = await People.PeopleServiceApi(client)
-            .people
-            .get("me", personFields: "person.names");
+        // People.Person details = await People.PeopleServiceApi(client)
+        //     .people
+        //     .get("me", personFields: "person.names");
         // // details.people.get("me",personFields: "person.names");
         // print(details.names);
         Event eve = await calendar.events
