@@ -91,11 +91,16 @@ class GoogleCalendar {
             key: "refreshToken", value: client.credentials.refreshToken);
         String calendarId = "primary";
         print('ss');
-        // People.Person details = await People.PeopleServiceApi(client)
-        //     .people
-        //     .get("me", personFields: "person.names");
-        // // details.people.get("me",personFields: "person.names");
-        // print(details.names);
+        People.Person person = await People.PeopleServiceApi(client)
+            .people
+            .get("people/me", personFields: "names,emailAddresses");
+        // person.people.get("me",personFields: "person.names");
+        print(person.names![0].displayName);
+        print(person.names![0].toString());
+        print(person.names![0].displayNameLastFirst);
+        // print(person.emailAddresses);
+        // print(person.emailAddresses![0].value);
+        print('so');
         Event eve = await calendar.events
             .insert(event, calendarId, conferenceDataVersion: 1);
         print(eve.status);
@@ -122,12 +127,17 @@ class GoogleCalendar {
         await storage.write(
             key: "refreshToken", value: client.credentials.refreshToken);
         String calendarId = "primary";
-
-        // People.Person details = await People.PeopleServiceApi(client)
-        //     .people
-        //     .get("me", personFields: "person.names");
-        // // details.people.get("me",personFields: "person.names");
-        // print(details.names);
+        print('ss');
+        People.Person person = await People.PeopleServiceApi(client)
+            .people
+            .get("people/me", personFields: "names,emailAddresses");
+        // person.people.get("me",personFields: "person.names");
+        print(person.names![0].displayName);
+        print(person.names![0].toString());
+        print(person.names![0].displayNameLastFirst);
+        // print(person.emailAddresses);
+        // print(person.emailAddresses![0].value);
+        print('so');
         Event eve = await calendar.events
             .insert(event, calendarId, conferenceDataVersion: 1);
         print(eve.status);

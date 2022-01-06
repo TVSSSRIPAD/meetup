@@ -259,6 +259,23 @@ END:VCALENDAR''';
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        leading: GestureDetector(
+          onTap: () {/* Write listener code here */},
+          child: const Icon(
+            Icons.menu, // add custom icons also
+          ),
+        ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: colorr.Colors.white,
+            ),
+            onPressed: () {
+              // do something
+            },
+          )
+        ],
       ),
       body: Row(
         mainAxisAlignment: MainAxisAlignment.center,
