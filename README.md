@@ -1,16 +1,15 @@
 # meetup
 
-A new Flutter project.
+A Flutter app to seemlessly schedule GMeet (google-meetings) and share the invite link or calendar event (ICS File)
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+## Screenshots of the app
 
-A few resources to get you started if this is your first Flutter project:
+1. Home screen:-  
+  ![1](screenshots/1.jpeg)
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
+2. Date Picker:-  
+  ![2](screenshots/2.jpeg)
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+3. Scheduled meeting details:-  
+  ![3](screenshots/3.jpeg)
